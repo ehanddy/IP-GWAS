@@ -1,0 +1,71 @@
+---
+title: "SNP_GWAS_EMLP"
+author: "Goitom"
+date: "2024-04-24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Remove all objects
+rm(list = ls())
+```
+
+```{r}
+library(DBI)
+library(biglm)
+#install.packages("rgl")
+library(rgl)
+#install.packages("OpenGL")
+library(foreach)
+library(bigmemory) 
+library(biganalytics)
+library(ape)
+library(grid)
+library(Matrix)
+library(EMMREML)
+library(scatterplot3d)
+library(lme4)
+library(LDheatmap)
+library(gtools)
+#install.packages("MASS")
+library(MASS)
+library(mvtnorm)
+library(combinat)
+library(genetics)
+library(compiler) #this library is already installed in R
+```
+
+```{r}
+install.packages("GAPIT")
+library(GAPIT)
+```
+
+```{r}
+setwd()
+#Importing Genotyping data and phenotype 
+myG<-read.delim("imputed_genotype_330_filter005.hmp.txt",head = FALSE)
+myY <- read.table("phenotype_CWGY_NA.txt", sep = "\t", head = TRUE)
+```
+
+Perform GWAS individually for each phenotype by changing x Y=myY[,c(2,x)], also multimodel is possible
+by uncommenting
+```{r}
+myGAPIT<-GAPIT(
+    Y=myY[,c(2,3)],
+    G=myG,
+    PCA.total=5,
+    cutOff=0.93837,
+    Multiple_analysis = TRUE,
+    Random.model=FALSE,
+    file.output=TRUE,
+    #model=c("GLM","MLM","FarmCPU","BLINK"),
+    model=c("FarmCPU")
+    )
+    
+```
+
+

@@ -1,0 +1,122 @@
+---
+title: "Handling_Original_VCF"
+author: "Goitom"
+date: "2024-04-24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Step-1
+Rscript (handling_original_vcf.R)
+These steps are part the first step for renaming a vcf file name
+
+```{r}
+library(vcfR)
+```
+
+```{r}
+setwd("write you wd")
+```
+
+```{r}
+#read the original vcf file using vcfR and save it to Genotype
+Genotype <- read.vcfR("Zea_filtered_final2.vcf")
+```
+
+
+```{r}
+#extract elements from vcfR orbect
+geno <- extract.gt(Genotype)
+#extract the samples and save them as geno_oldname
+geno_oldname <- colnames(geno)
+#create a dataframe to hold the old and new sample names
+sample_names <- data.frame(old_name=colnames(geno))
+#remove from the old sample name "/usr/users/aiyesa/GB-eaSy/Intermediate_files/bam_alignments/" and ".fq_sort.bam" 
+sample_names$new_name <- sub(".*/([A-Za-z0-9_-]+)\\..*", "\\1", geno_oldname)
+```
+
+```{r}
+#save as text file the dataframe that contain the old and new sample names separated by space without quote
+#This is for operation using the bcftools in the next step
+write.table(sample_names, file = "samples.txt", sep = " ", row.names = FALSE,quote = FALSE)
+```
+
+
+
+STEP-2 Then go back to bcftools do the STEP 2 mentioned at the text file QualitycheckSteps
+
+
+STEP-3
+The following steps are done after renaming the sample names using bcftools
+mentioned at QualitycheckSteps.docx"
+
+#read the samplename renamed vcf file
+library(vcfR)
+setwd("/Volumes/VERBATIM HD/final_thesis/data/genotype/raw_genotype")
+new_geno <- read.vcfR("Zea_filtered_renamed.vcf")
+```{r}
+#read the samplename renamed vcf file
+library(vcfR)
+setwd("/Volumes/VERBATIM HD/final_thesis/data/genotype/raw_genotype")
+new_geno <- read.vcfR("Zea_filtered_renamed.vcf")
+```
+
+```{r}
+#extract elements from vcfR orbect
+geno_new <- extract.gt(new_geno)
+
+#save the new names of all the individuals
+original_new_names <- colnames(geno_new)
+
+#extract the filtered genotype data form a hapmap file (this is the genotype file in hapmap format which contain the 330 individuals)
+setwd("write your wd")
+final_geno330_hapmap <- read.delim("genotype_330.hmp.txt", header = T)
+```
+
+
+
+```{r}
+#Extract the individuals name of final 330 individuals of the hapmap file from the first step of filtering
+#Hapmap file doesnot contain phasing information but vcf have phasing which is important for haplotype-blocking and gwas
+head(final_geno330_hapmap)[,1:13]
+final_330_names <- colnames(final_geno330_hapmap)[-c(1:11)]
+length(final_330_names) #330 individuals
+length(original_new_names) #365 individuals
+```
+
+
+
+```{r}
+#select individuals in original_new_names not in final_330_names
+removed_individuals <- setdiff(original_new_names,final_330_names)
+length(removed_individuals) #35 individuals of quality issues to be removed these individuals were also removed before from the phenotype
+```
+
+```{r}
+retained_individuals <- intersect(final_330_names, original_new_names)
+length(retained_individuals) #330 individuals retained
+```
+
+
+
+```{r}
+#save it to data fram removed and retained individs
+removed_individuals_df <- data.frame(individuals=removed_individuals)
+
+
+retained_individuals_df <- data.frame(individuals_retained = retained_individuals)
+```
+
+
+```{r}
+#save removed and retained individuals to separate txt file
+setwd("WriteYourWorkingDirectory/removed_and_retained_individuals")
+write.table(removed_individuals_df, file="removedSamples.txt", row.names=F,quote=F)
+
+write.table(retained_individuals_df, file="retainedSamples.txt", row.names=F,quote=F)
+```
+
+STEP 4: Follow step 4 mentioned at the QualitycheckStep txt file for further quality check (cleaning, imputing, filtering)

@@ -1,0 +1,218 @@
+---
+title: "Haplotype_GWAS_Rainbowr"
+author: "Goitom"
+date: "2024-04-24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+convert to numerical format the hapmap file using GAPIT
+the numerical converted genotypes by gapit 
+0=homozygous reference, 2=homozygous alternative, 1=heterozygous
+
+```{r}
+###############
+library(DBI)
+library(biglm)
+#install.packages("rgl")
+library(rgl)
+#install.packages("OpenGL")
+library(foreach)
+library(bigmemory) 
+library(biganalytics)
+library(ape)
+library(grid)
+library(Matrix)
+library(EMMREML)
+library(scatterplot3d)
+library(lme4)
+library(LDheatmap)
+library(gtools)
+#install.packages("MASS")
+library(MASS)
+library(mvtnorm)
+library(combinat)
+library(genetics)
+library(compiler) #this library is already installed in R
+
+
+library(GAPIT)
+```
+
+
+```{r}
+#Importing Genotyping data
+myG<-read.delim("imputed_genotype_330_filter005.hmp.txt",head = FALSE)
+```
+
+
+```{r}
+#convert to numerical using Gapit
+myGAPIT <- GAPIT(G=myG, output.numerical=TRUE)
+myGD= myGAPIT$GD
+myGM= myGAPIT$GM
+```
+
+
+```{r}
+#according to rainbow it requires genotype numerical format as
+#-1=homozygour reference, 1=homozygous alternative, 0=heterozygous
+#For that subtract 1 from each of the gapit format
+myGD [,2:ncol(myGD)] <- myGD[,2:ncol(myGD)]-1
+head (myGD) [,1:15]
+```
+
+
+```{r}
+#convert to rainbow requried numeric format by transposing it
+tmyGD <- as.data.frame(t(myGD[,-1]))
+colnames(tmyGD) <- myGD$taxa
+```
+
+
+```{r}
+#save the table in hapmap format to the working directory
+#Geno numeric -1, 0, 1 form for homo_ref, hetro, and homo_alt
+write.table(tmyGD, file = "geno_score.txt", sep = "\t",
+            quote = FALSE, row.names = FALSE)
+#Map of each snp position
+write.table(myGM, file = "geno_map.txt", sep = "\t",
+            quote = FALSE, row.names = FALSE)
+```
+
+
+```{r}
+#read phenotype
+pheno <- read.table("phenotype_CWGY_NA.txt", header = T)
+```
+
+
+```{r}
+#check order of taxa in geno and pheno files are same and everything is alright 
+head(pheno)
+taxaGD <- myGD$taxa
+taxaPH <- pheno$Individuals
+which (taxaGD == taxaPH)
+```
+
+
+```{r}
+#make the pheno, geno files available
+pheno <- pheno[,-c(1,2)]
+rownames(pheno) <- taxaPH #phenotype need row names
+```
+
+
+```{r}
+### Select one trait
+#trait.name <- "Grain_Weight"
+#trait.name <- "Ear_Weight"
+trait.name <- "Plant_Height_F"
+#trait.name <- "Leaf_Length"
+#trait.name <- "Leaf_Width"
+y <- pheno[,trait.name, drop=F]
+```
+
+
+```{r}
+#read geno
+geno_score <- read.table("geno_score.txt", header = T)
+```
+
+```{r}
+#read map 
+geno_map <- read.table("geno_map.txt", header = T)
+```
+
+```{r}
+#give nownames snp for geno_score matrix 
+snp_ids <- geno_map$SNP
+rownames(geno_score) <- snp_ids 
+```
+
+```{r}
+# Rename the "SNP, Chromosome, Position" column to "marker, chr, pos" 
+colnames(geno_map)[colnames(geno_map) == "SNP"] <- "marker"
+colnames(geno_map)[colnames(geno_map) == "Chromosome"] <- "chr"
+colnames(geno_map)[colnames(geno_map) == "Position"] <- "pos"
+```
+
+```{r}
+#save the geno_map$marker as factor
+geno_map$marker <- as.factor(geno_map$marker)
+```
+
+```{r}
+#give row name to geno_map the snp ids
+rownames(geno_map) <- snp_ids
+```
+
+```{r}
+#Read the haplo block data 
+haplo_block <- read.table("all_chr_haplo_block_hapvwr.txt", header = T)
+haplo_block$block <- as.character(haplo_block$block)
+```
+
+```{r}
+### Remove SNPs whose MAF <= 0.01 #skip if done
+x.0 <- t(geno_score)
+MAF.cut.res <- MAF.cut(x.0 = x.0, map.0 = geno_map, min.MAF = 0.01)
+x <- MAF.cut.res$x
+map <- MAF.cut.res$map
+```
+
+```{r}
+### Estimate genomic relationship matrix (GRM) 
+K.A <- calcGRM(genoMat = x)
+str(K.A)
+See(K.A)
+```
+
+```{r}
+### Modify data for RAINBOW gwas
+modify.data.res <- modify.data(pheno.mat = y, geno.mat = x, map = map,
+                               return.ZETA = TRUE, return.GWAS.format = TRUE)
+
+pheno.GWAS <- modify.data.res$pheno.GWAS
+geno.GWAS <- modify.data.res$geno.GWAS
+ZETA <- modify.data.res$ZETA
+
+```
+
+```{r}
+### Perform haplotype-block based GWAS (by using hapltype blocks estimated by PLINK according to GCI)
+haplo_block.res <- RGWAS.multisnp(pheno = pheno.GWAS, geno = geno.GWAS[1:nrow(geno.GWAS), ], ZETA = ZETA,
+                                  plot.qq = TRUE, plot.Manhattan = TRUE, count = T,
+                                  n.PC = 5, test.method = "LR", kernel.method = "gaussian", 
+                                  gene.set = haplo_block, skip.check = FALSE, 
+                                  verbose = TRUE, verbose2 = TRUE, thres = TRUE, method.thres = "BH",
+                                  haplotype = TRUE, time = TRUE)
+```
+
+```{r}
+#Further filter for analysis of significant marker and block it reside
+
+haplo_gwas_res <- haplo_block.res$D
+haplo_gwas_res$marker <- as.numeric(haplo_gwas_res$marker)
+haplo_block$block <- as.numeric(haplo_block$block)
+binded_haplo_gwas_res <- merge(haplo_gwas_res, haplo_block, by.x = "marker", by.y = "block", all.x = TRUE)
+binded_haplo_gwas_res$marker <- as.factor(binded_haplo_gwas_res$marker)
+binded_haplo_gwas_res$p_val <- 10^(-binded_haplo_gwas_res[,4])
+colnames(binded_haplo_gwas_res)[colnames(binded_haplo_gwas_res)=="marker"] <- "block"
+colnames(binded_haplo_gwas_res)[colnames(binded_haplo_gwas_res)=="marker.y"] <- "marker"
+signif_blocks <- subset(binded_haplo_gwas_res, binded_haplo_gwas_res$p_val<0.001)
+```
+
+```{r}
+write.table(binded_haplo_gwas_res,file = "hv_over_all_result.txt",sep = "\t", row.names = F)
+write.table(signif_blocks, file = "hv_signif_blocks.txt",sep = "\t", row.names = F)
+write.table(haplo_gwas_res, file = "hv_blocks.txt",sep = "\t", row.names = F)
+```
+
+```{r}
+
+```

@@ -1,0 +1,403 @@
+---
+title: "EMLP Per-Chromosome LD analysis"
+author: "Goitom"
+date: "2024-04-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+ Pair-wise LD (r2) was calculated per chromosome in TASSEL using a sliding window of 1500
+ This created 10 files
+ 1. chr1_slide1500.txt        6. chr6_slide1500.txt
+ 2. chr2_slide1500.txt        7. chr7_slide1500.txt
+ 3. chr3_slide1500.txt        8. chr8_slide1500.txt
+ 4. chr4_slide1500.txt        9. chr9_slide1500.txt
+ 5. chr5_slide1500.txt        10. chr10_slide1500.txt
+ 
+                        
+
+Set working directory
+```{r}
+setwd("replace with your working directory")
+```
+
+
+read LD estimate file (replace "file.txt" with one of the above 10 Pair-wise LD files)
+```{r}
+ld_chr <- read.delim("file.txt", stringsAsFactors = F, header = T, sep = "\t") 
+```
+
+remove NaN values
+```{r}
+ld_chr_noNAN <- subset(ld_chr, ld_chr$R.2 != "NaN")
+```
+
+
+Fit a non linear model (Hill & Weir, 1988) using arbitrary start value, where
+N is the number of the genotypes that have the SNP loci
+R.2 is pairwise LD (R.2) calculated by TASSEL
+Dist_bp is the distance in bp of the pairwise SNPs
+HW_nonLinear is object obtained after fitting the non-linear model according to (Hill & Weir, 1988; Remington et al., 2001; Marroni et al., 2011)
+```{r}
+start <- c(C=0.1)
+HW_nonLinear <- nls(R.2 ~ (( (10+C*Dist_bp) / ( (2+C*Dist_bp) * (11+C*Dist_bp) ) ) *
+                       ( 1+( ((3+C*Dist_bp) * (12+12*C*Dist_bp+(C*Dist_bp)^2) ) / (N*(2+C*Dist_bp) *   (11+C*Dist_bp) ) ) )),
+              data = ld_chr_noNAN, start = start, control = nls.control(maxiter = 100))
+```
+
+
+
+Extract rho that is population recombination parameter
+```{r}
+rho <- summary(HW_nonLinear)$parameters[1]
+```
+
+
+feed in the new value of rho to obtain expected LD (r2) values adjusted for their distances 
+along the chromosome/genome E(r^2) (Hill & Weir, 1988; Remington et al., 2001; Marroni et al., 2011)
+```{r}
+newrsq <- ( (10+rho*ld_chr_noNAN$Dist_bp) / ( (2+rho*ld_chr_noNAN$Dist_bp) * (11+rho*ld_chr_noNAN$Dist_bp) ) ) *
+  ( 1 + ( ( (3+rho * ld_chr_noNAN$Dist_bp) * (12+12*rho*ld_chr_noNAN$Dist_bp + (rho*ld_chr_noNAN$Dist_bp)^2) ) / 
+            (ld_chr_noNAN$N*(2+rho*ld_chr_noNAN$Dist_bp) * (11+rho*ld_chr_noNAN$Dist_bp) ) ) ) 
+
+```
+
+
+bind the obtained LD (r2) to the dataframe
+```{r}
+new_ld_chr_noNAN <- data.frame(ld_chr_noNAN, newrsq)
+```
+
+
+Calculate maximum LD (r2), half LD decay (r2) and helf LD decay (r2) distance
+```{r}
+maxld <- max(new_ld_chr_noNAN$newrsq, na.rm = TRUE) #using max LD value from adjusted data
+
+halfdecay <- maxld*0.5 
+
+halfdecaydist <- new_ld_chr_noNAN$Dist_bp[which.min
+                                            (abs(new_ld_chr_noNAN$newrsq-halfdecay))] 
+
+```
+
+Save the new_ld_chr_noNAN files for each chromosome along with the mayld, halfdecay, halfdecaydist
+```{r}
+write.table(new_ld_chr_noNAN, file = "ld_chr1.txt",sep = "\t", quote = FALSE, row.names = FALSE)
+```
+
+
+Plot the LD (r2) decay individually for each chromosome (Hill & Weir, 1988)
+```{r}
+png("Fig_chr.png")
+plot(new_ld_chr_noNAN$Dist_bp, new_ld_chr_noNAN$R.2, pch=16, cex=0.5, xlab = "Distance (bp)", 
+     ylab = expression("LD" ~ " (" ~ r^2 ~ ")"), main = "LD Decay with Distance chromosome-1", col="skyblue", xlim = c(0,5000), mgp = c(2, 0.7, 0))
+lines(new_ld_chr_noNAN$Dist_bp, new_ld_chr_noNAN$newrsq, type = "l",lty=3,lwd=1.2, col="black")
+abline(h=halfdecay, col="blue") 
+abline(v=halfdecaydist, col="red")
+mtext(round(halfdecaydist,2), side = 1, line = 0.05, at=halfdecaydist, cex = 0.75, col="red")
+mtext(round(halfdecay,2), side = 2, line = 0.05, at=halfdecay+0.03, cex = 0.75, col="blue")
+dev.off()
+
+```
+
+
+
+Plot  LD (r2) for all chromosomes together in one plot (Hill & Weir, 1988)
+
+```{r}
+png("LD_decay_plot2.png",width = 18, height = 22, units = "in", res = 1000)
+par(cex.lab = 5, cex.axis = 4, cex.main = 6, mgp=c(7,2,0))
+par(mar = c(13, 12, 6, 2) + 0.1, font.lab=2, font.axis=2)  
+plot(new_ld_chr1_noNAN$Dist_bp, new_ld_chr1_noNAN$R.2,pch=NA, xlim = c(0,5000), xlab = "Distance (bp)",
+     ylab = expression("LD" ~ " (" ~ r^2 ~ ")"), ylim=c(0,0.6), main = "LD Decay", 
+)
+lines(new_ld_chr1_noNAN$Dist_bp, new_ld_chr1_noNAN$newrsq,lty=3,lwd=1.2, col=adjustcolor("blue", alpha.f = 1))
+lines(new_ld_chr2_noNAN$Dist_bp, new_ld_chr2_noNAN$newrsq,lty=3,lwd=1.2, col=adjustcolor("gold", alpha.f=1))
+lines(new_ld_chr3_noNAN$Dist_bp, new_ld_chr3_noNAN$newrsq,lty=3,lwd=1.2, col = adjustcolor("red", alpha.f = 0.8))
+lines(new_ld_chr4_noNAN$Dist_bp, new_ld_chr4_noNAN$newrsq,lty=3,lwd=1.5, col=adjustcolor("black", alpha.f = 1))
+lines(new_ld_chr5_noNAN$Dist_bp, new_ld_chr5_noNAN$newrsq,lty=3,lwd=1.2, col=adjustcolor("darkgray", alpha.f = 1))
+lines(new_ld_chr6_noNAN$Dist_bp, new_ld_chr6_noNAN$newrsq,lty=3,lwd=1.2, col=adjustcolor("cyan", alpha.f = 0.8))
+lines(new_ld_chr7_noNAN$Dist_bp, new_ld_chr7_noNAN$newrsq,lty=3,lwd=0.8, col=adjustcolor("magenta", alpha.f = 0.8))
+lines(new_ld_chr8_noNAN$Dist_bp, new_ld_chr8_noNAN$newrsq,lty=3,lwd=1.2, col=adjustcolor("green", alpha.f = 0.8))
+lines(new_ld_chr9_noNAN$Dist_bp, new_ld_chr9_noNAN$newrsq,lty=3,lwd=1.2, col=adjustcolor("yellow", alpha.f = 1))
+lines(new_ld_chr10_noNAN$Dist_bp, new_ld_chr10_noNAN$newrsq,lty=1,lwd=0.7, col=adjustcolor("darkgreen", alpha.f = 0.8))
+legend('topright', legend=c("1","2","3","4","5",
+                            "6","7","8","9","10"), 
+       col=c('blue', 'gold', 'red', "black","darkgray","cyan","magenta","green","yellow","darkgreen"), 
+       lty= 1, lwd = 7, title = "Chromosomes",cex = 5)
+dev.off()
+
+```
+
+
+Plotting combined PopLDdecay and HW (r2) LD decay outputs
+
+In addition to the above, LD was also calculated per chromosome using PopLDdecay and the following
+files was produced for each chromosome
+1. Fig_chr1.bin       6. Fig_chr6.bin
+2. Fig_chr2.bin       7. Fig_chr7.bin
+3. Fig_chr3.bin       8. Fig_chr8.bin
+4. Fig_chr4.bin       9. Fig_chr9.bin
+5. Fig_chr5.bin       10. Fig_chr10.bin
+
+
+
+read the output3 of PopLDdecay (col1: distance, col2: r^2, col3: D')
+```{r}
+setwd("specify the wd")
+read.table("Fig_chr1.bin")->chr1
+read.table("Fig_chr2.bin")->chr2
+read.table("Fig_chr3.bin")->chr3
+read.table("Fig_chr4.bin")->chr4
+read.table("Fig_chr5.bin")->chr5
+read.table("Fig_chr6.bin")->chr6
+read.table("Fig_chr7.bin")->chr7
+read.table("Fig_chr8.bin")->chr8
+read.table("Fig_chr9.bin")->chr9
+read.table("Fig_chr10.bin")->chr10
+```
+
+
+Read the average r^2 decay (E(r^2)) (Hill & Weir, 1988; Remington, 2001)
+```{r}
+setwd("Sepcify the wd")
+ld_chr1 <- read.delim("ld_chr1.txt", header = T, sep = "\t")
+ld_chr2 <- read.delim("ld_chr2.txt", header = T, sep = "\t")
+ld_chr3 <- read.delim("ld_chr3.txt", header = T, sep = "\t")
+ld_chr4 <- read.delim("ld_chr4.txt", header = T, sep = "\t")
+ld_chr5 <- read.delim("ld_chr5.txt", header = T, sep = "\t")
+ld_chr6 <- read.delim("ld_chr6.txt", header = T, sep = "\t")
+ld_chr7 <- read.delim("ld_chr7.txt", header = T, sep = "\t")
+ld_chr8 <- read.delim("ld_chr8.txt", header = T, sep = "\t")
+ld_chr9 <- read.delim("ld_chr9.txt", header = T, sep = "\t")
+ld_chr10 <- read.delim("ld_chr10.txt", header = T, sep = "\t")
+```
+
+
+Combined plot for Chromosome-1: plot LD decay r^2 ((Hill & Weir, 1988) and D' and r^2 (PopLDdecay) 
+```{r}
+png("EMLP_chr1_RsqDprm.png", width = 7, height = 5, units = "in", res = 300)
+par(cex.lab = 1.2, cex.axis = 1.2, cex.main = 1.6)
+par(mar = c(3.2, 3.1, 1.3, 0.1), font.lab=2, font.axis=1) 
+par(mgp = c(2, 1, 0))
+plot(ld_chr1$Dist_bp, ld_chr1$R.2, pch=16, cex=0.5, xlab = "Distance (bp)", 
+     ylab = "LD", col="skyblue", xlim = c(0,5000), ylim = c(0,1))
+lines(ld_chr1$Dist_bp, ld_chr1$newrsq, type = "l",bty="n",lwd=2.5, col="blue")
+lines(chr1[,1],chr1[,3],type="l", col="brown" ,bty="n",lwd=3)
+legend('topright', legend=c("D'",expression(r^{2})), 
+       col=c('brown', 'blue'), 
+       lty= 1, lwd = 4, title = "LD",cex = 1.1)
+abline(h=0.24, col="black", untf = NA, xpd = F, lwd=1.5) 
+abline(v=262, col="darkorange", untf = NA, xpd = F, lwd=1.5)
+mtext(round(262,3), side = 1, line = 0, cex = 1.1, col="darkorange", font = 4, at = 262)
+mtext(round(0.24,2), side = 2, line = 0, cex = 1.1, col="black", font = 4, at= 0.24)
+title(main = "Chr-1", line = -0.01)
+dev.off()
+
+```
+
+Combined plot for Chromosome-2: plot LD decay r^2 ((Hill & Weir, 1988) and D' and r^2 (PopLDdecay) 
+```{r}
+png("EMLP_chr2_RsqDprm.png", width = 7, height = 5, units = "in", res = 300)
+par(cex.lab = 1.2, cex.axis = 1.2, cex.main = 1.6)
+par(mar = c(3.2, 3.1, 1.3, 0.1), font.lab=2, font.axis=1)  
+par(mgp = c(2, 1, 0))
+plot(ld_chr2$Dist_bp, ld_chr2$R.2, pch=16, cex=0.5, xlab = "Distance (bp)", 
+     ylab = "LD", col="skyblue", xlim = c(0,5000), ylim = c(0,1))
+lines(ld_chr2$Dist_bp, ld_chr2$newrsq, type = "l",bty="n",lwd=2.5, col="gold")
+lines(chr2[,1],chr2[,3],type="l", col="brown" ,bty="n",lwd=3)
+legend('topright', legend=c("D'",expression(r^{2})), 
+       col=c('brown', 'gold'), 
+       lty= 1, lwd = 4, title = "LD",cex = 1.1)
+abline(h=0.24, col="blue", untf = NA, xpd = F, lwd=1.5) 
+abline(v=249, col="darkorange", untf = NA, xpd = F, lwd=1.5)
+mtext(round(249,3), side = 1, line = 0, cex = 1.1, col="darkorange", font = 4, at = 249)
+mtext(round(0.24,2), side = 2, line = 0, cex = 1.1, col="blue", font = 4, at= 0.24)
+title(main = "Chr-2", line = -0.01)
+dev.off()
+```
+
+Combined plot for Chromosome-3: plot LD decay r^2 ((Hill & Weir, 1988) and D' and r^2 (PopLDdecay) 
+```{r}
+png("EMLP_chr3_RsqDprm.png", width = 7, height = 5, units = "in", res = 300)
+par(cex.lab = 1.2, cex.axis = 1.2, cex.main = 1.6)
+par(mar = c(3.2, 3.1, 1.3, 0.1), font.lab=2, font.axis=1)  
+par(mgp = c(2, 1, 0))
+plot(ld_chr3$Dist_bp, ld_chr3$R.2, pch=16, cex=0.5, xlab = "Distance (bp)", 
+     ylab = "LD", col="skyblue", xlim = c(0,5000), ylim = c(0,1))
+lines(ld_chr3$Dist_bp, ld_chr3$newrsq, type = "l",bty="n",lwd=2.5, col="red")
+lines(chr3[,1],chr3[,3],type="l", col="brown" ,bty="n",lwd=3)
+legend('topright', legend=c("D'",expression(r^{2})), 
+       col=c('brown', 'red'), 
+       lty= 1, lwd = 4, title = "LD",cex = 1.1)
+abline(h=0.24, col="blue", untf = NA, xpd = F, lwd=1.5) 
+abline(v=344, col="darkorange", untf = NA, xpd = F, lwd=1.5)
+mtext(round(344,3), side = 1, line = 0, cex = 1.1, col="darkorange", font = 4, at = 344)
+mtext(round(0.24,2), side = 2, line = 0, cex = 1.1, col="blue", font = 4, at= 0.24)
+title(main = "Chr-3", line = -0.01)
+dev.off()
+```
+
+Combined plot for Chromosome-4: plot LD decay r^2 ((Hill & Weir, 1988) and D' and r^2 (PopLDdecay) 
+```{r}
+png("EMLP_chr4_RsqDprm.png", width = 7, height = 5, units = "in", res = 300)
+par(cex.lab = 1.2, cex.axis = 1.2, cex.main = 1.6)
+par(mar = c(3.2, 3.1, 1.3, 0.1), font.lab=2, font.axis=1)  
+par(mgp = c(2, 1, 0))
+plot(ld_chr4$Dist_bp, ld_chr4$R.2, pch=16, cex=0.5, xlab = "Distance (bp)", 
+     ylab = "LD", col="skyblue", xlim = c(0,5000), ylim = c(0,1))
+lines(ld_chr4$Dist_bp, ld_chr4$newrsq, type = "l",bty="n",lwd=2.5, col="black")
+lines(chr4[,1],chr4[,3],type="l", col="brown" ,bty="n",lwd=3)
+legend('topright', legend=c("D'",expression(r^{2})), 
+       col=c('brown', 'black'), 
+       lty= 1, lwd = 4, title = "LD",cex = 1.1)
+abline(h=0.24, col="blue", untf = NA, xpd = F, lwd=1.5) 
+abline(v=480, col="darkorange", untf = NA, xpd = F, lwd=1.5)
+mtext(round(480,3), side = 1, line = 0, cex = 1.1, col="darkorange", font = 4, at = 480)
+mtext(round(0.24,2), side = 2, line = 0, cex = 1.1, col="blue", font = 4, at= 0.24)
+title(main = "Chr-4", line = -0.01)
+dev.off()
+```
+
+Combined plot for Chromosome-5: plot LD decay r^2 ((Hill & Weir, 1988) and D' and r^2 (PopLDdecay) 
+```{r}
+png("EMLP_chr5_RsqDprm.png", width = 7, height = 5, units = "in", res = 300)
+par(cex.lab = 1.2, cex.axis = 1.2, cex.main = 1.6)
+par(mar = c(3.2, 3.1, 1.3, 0.1), font.lab=2, font.axis=1)  
+par(mgp = c(2, 1, 0))
+plot(ld_chr5$Dist_bp, ld_chr5$R.2, pch=16, cex=0.5, xlab = "Distance (bp)", 
+     ylab = "LD", col="skyblue", xlim = c(0,5000), ylim = c(0,1))
+lines(ld_chr5$Dist_bp, ld_chr5$newrsq, type = "l",bty="n",lwd=2.5, col="darkgray")
+lines(chr5[,1],chr5[,3],type="l", col="brown" ,bty="n",lwd=3)
+legend('topright', legend=c("D'",expression(r^{2})), 
+       col=c('brown', 'darkgray'), 
+       lty= 1, lwd = 4, title = "LD",cex = 1.1)
+abline(h=0.24, col="blue", untf = NA, xpd = F, lwd=1.5) 
+abline(v=296, col="darkorange", untf = NA, xpd = F, lwd=1.5)
+mtext(round(296,3), side = 1, line = 0, cex = 1.1, col="darkorange", font = 4, at = 296)
+mtext(round(0.24,2), side = 2, line = 0, cex = 1.1, col="blue", font = 4, at= 0.24)
+title(main = "Chr-5", line = -0.01)
+dev.off()
+```
+
+Combined plot for Chromosome-6: plot LD decay r^2 ((Hill & Weir, 1988) and D' and r^2 (PopLDdecay) 
+```{r}
+png("EMLP_chr6_RsqDprm.png", width = 7, height = 5, units = "in", res = 300)
+par(cex.lab = 1.2, cex.axis = 1.2, cex.main = 1.6)
+par(mar = c(3.2, 3.1, 1.3, 0.1), font.lab=2, font.axis=1) 
+par(mgp = c(2, 1, 0))
+plot(ld_chr6$Dist_bp, ld_chr6$R.2, pch=16, cex=0.5, xlab = "Distance (bp)", 
+     ylab = "LD", col="skyblue", xlim = c(0,5000), ylim = c(0,1))
+lines(ld_chr6$Dist_bp, ld_chr6$newrsq, type = "l",bty="n",lwd=2.5, col="cyan")
+lines(chr6[,1],chr6[,3],type="l", col="brown" ,bty="n",lwd=3)
+legend('topright', legend=c("D'",expression(r^{2})), 
+       col=c('brown', 'cyan'), 
+       lty= 1, lwd = 4, title = "LD",cex = 1.1)
+abline(h=0.24, col="blue", untf = NA, xpd = F, lwd=1.5) 
+abline(v=277, col="darkorange", untf = NA, xpd = F, lwd=1.5)
+mtext(round(277,3), side = 1, line = 0, cex = 1.1, col="darkorange", font = 4, at = 277)
+mtext(round(0.24,2), side = 2, line = 0, cex = 1.1, col="blue", font = 4, at= 0.24)
+title(main = "Chr-6", line = -0.01)
+dev.off()
+```
+
+Combined plot for Chromosome-7: plot LD decay r^2 ((Hill & Weir, 1988) and D' and r^2 (PopLDdecay) 
+```{r}
+png("EMLP_chr7_RsqDprm.png", width = 7, height = 5, units = "in", res = 300)
+par(cex.lab = 1.2, cex.axis = 1.2, cex.main = 1.6)
+par(mar = c(3.2, 3.1, 1.3, 0.1), font.lab=2, font.axis=1)  
+par(mgp = c(2, 1, 0))
+plot(ld_chr7$Dist_bp, ld_chr7$R.2, pch=16, cex=0.5, xlab = "Distance (bp)", 
+     ylab = "LD", col="skyblue", xlim = c(0,5000), ylim = c(0,1))
+lines(ld_chr7$Dist_bp, ld_chr7$newrsq, type = "l",bty="n",lwd=2.5, col="magenta")
+lines(chr7[,1],chr7[,3],type="l", col="brown" ,bty="n",lwd=3)
+legend('topright', legend=c("D'",expression(r^{2})), 
+       col=c('brown', 'magenta'), 
+       lty= 1, lwd = 4, title = "LD",cex = 1.1)
+abline(h=0.24, col="blue", untf = NA, xpd = F, lwd=1.5) 
+abline(v=250, col="darkorange", untf = NA, xpd = F, lwd=1.5)
+mtext(round(250,3), side = 1, line = 0, cex = 1.1, col="darkorange", font = 4, at = 250)
+mtext(round(0.24,2), side = 2, line = 0, cex = 1.1, col="blue", font = 4, at= 0.24)
+title(main = "Chr-7", line = -0.01)
+dev.off()
+```
+
+Combined plot for Chromosome-8: plot LD decay r^2 ((Hill & Weir, 1988) and D' and r^2 (PopLDdecay) 
+```{r}
+png("EMLP_chr8_RsqDprm.png", width = 7, height = 5, units = "in", res = 300)
+par(cex.lab = 1.2, cex.axis = 1.2, cex.main = 1.6)
+par(mar = c(3.2, 3.1, 1.3, 0.1), font.lab=2, font.axis=1) 
+par(mgp = c(2, 1, 0))
+plot(ld_chr8$Dist_bp, ld_chr8$R.2, pch=16, cex=0.5, xlab = "Distance (bp)", 
+     ylab = "LD", col="skyblue", xlim = c(0,5000), ylim = c(0,1))
+lines(ld_chr8$Dist_bp, ld_chr8$newrsq, type = "l",bty="n",lwd=2.5, col="green")
+lines(chr8[,1],chr8[,3],type="l", col="brown" ,bty="n",lwd=3)
+legend('topright', legend=c("D'",expression(r^{2})), 
+       col=c('brown', 'green'), 
+       lty= 1, lwd = 4, title = "LD",cex = 1.1)
+abline(h=0.23, col="blue", untf = NA, xpd = F, lwd=1.5)
+abline(v=492, col="darkorange", untf = NA, xpd = F, lwd=1.5)
+mtext(round(492,3), side = 1, line = 0, cex = 1.1, col="darkorange", font = 4, at = 492)
+mtext(round(0.23,2), side = 2, line = 0, cex = 1.1, col="blue", font = 4, at= 0.23)
+title(main = "Chr-8", line = -0.01)
+dev.off()
+```
+
+Combined plot for Chromosome-9: plot LD decay r^2 ((Hill & Weir, 1988) and D' and r^2 (PopLDdecay) 
+```{r}
+png("EMLP_chr9_RsqDprm.png", width = 7, height = 5, units = "in", res = 300)
+par(cex.lab = 1.2, cex.axis = 1.2, cex.main = 1.6)
+par(mar = c(3.2, 3.1, 1.3, 0.1), font.lab=2, font.axis=1)  
+par(mgp = c(2, 1, 0))
+plot(ld_chr9$Dist_bp, ld_chr9$R.2, pch=16, cex=0.5, xlab = "Distance (bp)", 
+     ylab = "LD", col="skyblue", xlim = c(0,5000), ylim = c(0,1))
+lines(ld_chr9$Dist_bp, ld_chr9$newrsq, type = "l",bty="n",lwd=2.5, col="yellow")
+lines(chr9[,1],chr9[,3],type="l", col="brown" ,bty="n",lwd=3)
+legend('topright', legend=c("D'",expression(r^{2})), 
+       col=c('brown', 'yellow'), 
+       lty= 1, lwd = 4, title = "LD",cex = 1.1)
+abline(h=0.24, col="blue", untf = NA, xpd = F, lwd=1.5) 
+abline(v=349, col="darkorange", untf = NA, xpd = F, lwd=1.5)
+mtext(round(349,3), side = 1, line = 0, cex = 1.1, col="darkorange", font = 4, at = 349)
+mtext(round(0.24,2), side = 2, line = 0, cex = 1.1, col="blue", font = 4, at= 0.24)
+title(main = "Chr-9", line = -0.01)
+dev.off()
+```
+
+Combined plot for Chromosome-10: plot LD decay r^2 ((Hill & Weir, 1988) and D' and r^2 (PopLDdecay) 
+```{r}
+png("EMLP_chr10_RsqDprm.png", width = 7, height = 5, units = "in", res = 300)
+par(cex.lab = 1.2, cex.axis = 1.2, cex.main = 1.6)
+par(mar = c(3.2, 3.1, 1.3, 0.1), font.lab=2, font.axis=1) 
+par(mgp = c(2, 1, 0))
+plot(ld_chr10$Dist_bp, ld_chr10$R.2, pch=16, cex=0.5, xlab = "Distance (bp)", 
+     ylab = "LD", col="skyblue", xlim = c(0,5000), ylim = c(0,1))
+lines(ld_chr10$Dist_bp, ld_chr10$newrsq, type = "l",bty="n",lwd=2.5, col="darkgreen")
+lines(chr10[,1],chr10[,3],type="l", col="brown" ,bty="n",lwd=3)
+legend('topright', legend=c("D'",expression(r^{2})), 
+       col=c('brown', 'darkgreen'), 
+       lty= 1, lwd = 4, title = "LD",cex = 1.1)
+abline(h=0.24, col="blue", untf = NA, xpd = F, lwd=1.5) 
+abline(v=237, col="darkorange", untf = NA, xpd = F, lwd=1.5)
+mtext(round(237,3), side = 1, line = 0, cex = 1.1, col="darkorange", font = 4, at = 237)
+mtext(round(0.24,2), side = 2, line = 0, cex = 1.1, col="blue", font = 4, at= 0.24)
+title(main = "Chr-10", line = -0.01)
+dev.off()
+```
+
+
+References
+
+Hill WG, Weir BS. Variances and covariances of squared linkage disequilibria in finite populations. Theor Popul Biol. 1988 Feb;33(1):54-78. doi: 10.1016/0040-5809(88)90004-4. PMID: 3376052.
+
+Remington, D. L., Thornsberry, J. M., Matsuoka, Y., Wilson, L. M., Whitt, S. R., Doebley, J., Kresovich, S., Goodman, M. M., & Buckler, E. S. (2001). Structure of linkage disequilibrium and phenotypic associations  in the maize genome. Proceedings of the National Academy of Sciences, 98(20), 11479–11484.
+
+Marroni, F. (2011, August 9). Estimate decay of linkage disequilibrium with distance. Fabio Marroni’s Blog. https://fabiomarroni.wordpress.com/2011/08/09/estimate-decay-of-linkage-disequilibrium-with-distance/
+
+Marroni, F., Pinosio, S., Zaina, G., Fogolari, F., Felice, N., Cattonaro, F., & Morgante, M. (2011). Nucleotide diversity and linkage disequilibrium in Populus nigra cinnamyl alcohol dehydrogenase (CAD4) gene. Tree Genetics & Genomes, 7(5), 1011–1023. https://doi.org/10.1007/s11295-011-0391-5
+
+
+

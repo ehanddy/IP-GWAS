@@ -1,0 +1,316 @@
+---
+title: "Block_preparation"
+author: "Goitom"
+date: "2024-04-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This program will organize Haplotype block 
+The blocks were constructed by PLINK according confidence interval (Gabriel et al, 2002)
+
+
+Set the working directory where the files blocks_chr1.blocks to blocks_chr10.blocks located
+```{r}
+setwd()
+```
+
+The following steps will prepare the blocks for each chromosome 
+
+
+Chromosome-1
+```{r}
+# Read the PLINK .block file into R without a header
+block_data_chr1 <- read.delim("blocks_chr1.blocks", header = FALSE, comment.char = "", stringsAsFactors = FALSE)
+dim(block_data_chr1) #2853 blocks
+View(block_data_chr1)
+# Split the characters in each cell and create a new data frame
+block_data_str_chr1 <- data.frame(
+  block = rep(1:length(block_data_chr1$V1), sapply(strsplit(block_data_chr1$V1, " "), length)),
+  marker = unlist(strsplit(block_data_chr1$V1, " "))
+)
+head(block_data_str_chr1)
+# Remove rows with asterisk (*) character in the Characters column
+block_data_str_filt_chr1 <- subset(block_data_str_chr1, !grepl("\\*", marker))
+head(block_data_str_filt_chr1)
+str(block_data_str_filt_chr1)
+block_data_str_filt_chr1$block <- as.character(block_data_str_filt_chr1$block)
+head(block_data_str_filt_chr1)
+str(block_data_str_filt_chr1)
+```
+
+Chromosome-2
+```{r}
+# Read the PLINK .block file into R without a header
+block_data_chr2 <- read.delim("blocks_chr2.blocks", header = FALSE, comment.char = "", stringsAsFactors = FALSE)
+dim(block_data_chr2) #2213
+View(block_data_chr2)
+# Split the characters in each cell and create a new data frame
+block_data_str_chr2 <- data.frame(
+  block = rep(1:length(block_data_chr2$V1), sapply(strsplit(block_data_chr2$V1, " "), length)),
+  marker = unlist(strsplit(block_data_chr2$V1, " "))
+)
+head(block_data_str_chr2)
+# Remove rows with asterisk (*) character in the Characters column
+block_data_str_filt_chr2 <- subset(block_data_str_chr2, !grepl("\\*", marker))
+head(block_data_str_filt_chr2)
+str(block_data_str_filt_chr2)
+
+#check the end of chromosome 1 block number to continue to block 1
+tail(block_data_str_filt_chr1) # chr1 block ended at block 2853
+#then add that to the next chromosome block as continuation of blocks partitioning
+block_data_str_filt_chr2$block <- block_data_str_filt_chr2$block + 
+  as.numeric(block_data_str_filt_chr1$block[length(block_data_str_filt_chr1$block)])
+
+block_data_str_filt_chr2$block <- as.character(block_data_str_filt_chr2$block)
+head(block_data_str_filt_chr2)
+str(block_data_str_filt_chr2)
+```
+
+
+Chromosome-3
+```{r}
+# Read the PLINK .block file into R without a header
+block_data_chr3 <- read.delim("blocks_chr3.blocks", header = FALSE, comment.char = "", stringsAsFactors = FALSE)
+dim(block_data_chr3) #2097
+View(block_data_chr3)
+# Split the characters in each cell and create a new data frame
+block_data_str_chr3 <- data.frame(
+  block = rep(1:length(block_data_chr3$V1), sapply(strsplit(block_data_chr3$V1, " "), length)),
+  marker = unlist(strsplit(block_data_chr3$V1, " "))
+)
+head(block_data_str_chr3)
+# Remove rows with asterisk (*) character in the Characters column
+block_data_str_filt_chr3 <- subset(block_data_str_chr3, !grepl("\\*", marker))
+head(block_data_str_filt_chr3)
+str(block_data_str_filt_chr3)
+
+#check the end of chromosome 2 block number to continue to block number of next chromosome
+tail(block_data_str_filt_chr2) # chr2 block ended at block 5066
+#then add that to the next chromosome block as continuation of blocks partitioning
+block_data_str_filt_chr3$block <- block_data_str_filt_chr3$block + 
+  as.numeric(block_data_str_filt_chr2$block[length(block_data_str_filt_chr2$block)])
+
+block_data_str_filt_chr3$block <- as.character(block_data_str_filt_chr3$block)
+head(block_data_str_filt_chr3)
+str(block_data_str_filt_chr3)
+```
+
+Chromosome-4
+```{r}
+# Read the PLINK .block file into R without a header
+block_data_chr4 <- read.delim("blocks_chr4.blocks", header = FALSE, comment.char = "", stringsAsFactors = FALSE)
+dim(block_data_chr4) #1690
+View(block_data_chr4)
+# Split the characters in each cell and create a new data frame
+block_data_str_chr4 <- data.frame(
+  block = rep(1:length(block_data_chr4$V1), sapply(strsplit(block_data_chr4$V1, " "), length)),
+  marker = unlist(strsplit(block_data_chr4$V1, " "))
+)
+head(block_data_str_chr4)
+# Remove rows with asterisk (*) character in the Characters column
+block_data_str_filt_chr4 <- subset(block_data_str_chr4, !grepl("\\*", marker))
+head(block_data_str_filt_chr4)
+str(block_data_str_filt_chr4)
+
+#check the end of chromosome 3 block number to continue to block number of next chromosome
+tail(block_data_str_filt_chr3) # chr3 block ended at block 7163
+#then add that to the next chromosome block as continuation of blocks partitioning
+block_data_str_filt_chr4$block <- block_data_str_filt_chr4$block + 
+  as.numeric(block_data_str_filt_chr3$block[length(block_data_str_filt_chr3$block)])
+
+block_data_str_filt_chr4$block <- as.character(block_data_str_filt_chr4$block)
+head(block_data_str_filt_chr4)
+str(block_data_str_filt_chr4)
+
+```
+
+Chromosome-5
+```{r}
+# Read the PLINK .block file into R without a header
+block_data_chr5 <- read.delim("blocks_chr5.blocks", header = FALSE, comment.char = "", stringsAsFactors = FALSE)
+dim(block_data_chr5) #2165
+View(block_data_chr5)
+# Split the characters in each cell and create a new data frame
+block_data_str_chr5 <- data.frame(
+  block = rep(1:length(block_data_chr5$V1), sapply(strsplit(block_data_chr5$V1, " "), length)),
+  marker = unlist(strsplit(block_data_chr5$V1, " "))
+)
+head(block_data_str_chr5)
+# Remove rows with asterisk (*) character in the Characters column
+block_data_str_filt_chr5 <- subset(block_data_str_chr5, !grepl("\\*", marker))
+head(block_data_str_filt_chr5)
+str(block_data_str_filt_chr5)
+
+#check the end of chromosome 4 block number to continue to block number of next chromosome
+tail(block_data_str_filt_chr4) # chr4 block ended at block 8853
+#then add that to the next chromosome block as continuation of blocks partitioning
+block_data_str_filt_chr5$block <- block_data_str_filt_chr5$block + 
+  as.numeric(block_data_str_filt_chr4$block[length(block_data_str_filt_chr4$block)])
+
+block_data_str_filt_chr5$block <- as.character(block_data_str_filt_chr5$block)
+head(block_data_str_filt_chr5)
+str(block_data_str_filt_chr5)
+```
+
+Chromosome-6
+```{r}
+# Read the PLINK .block file into R without a header
+block_data_chr6 <- read.delim("blocks_chr6.blocks", header = FALSE, comment.char = "", stringsAsFactors = FALSE)
+dim(block_data_chr6) #1457
+View(block_data_chr6)
+# Split the characters in each cell and create a new data frame
+block_data_str_chr6 <- data.frame(
+  block = rep(1:length(block_data_chr6$V1), sapply(strsplit(block_data_chr6$V1, " "), length)),
+  marker = unlist(strsplit(block_data_chr6$V1, " "))
+)
+head(block_data_str_chr6)
+# Remove rows with asterisk (*) character in the Characters column
+block_data_str_filt_chr6 <- subset(block_data_str_chr6, !grepl("\\*", marker))
+head(block_data_str_filt_chr6)
+str(block_data_str_filt_chr6)
+
+#check the end of chromosome 5 block number to continue to block number of next chromosome
+tail(block_data_str_filt_chr5) # chr5 block ended at block 11018
+#then add that to the next chromosome block as continuation of blocks partitioning
+block_data_str_filt_chr6$block <- block_data_str_filt_chr6$block + 
+  as.numeric(block_data_str_filt_chr5$block[length(block_data_str_filt_chr5$block)])
+
+block_data_str_filt_chr6$block <- as.character(block_data_str_filt_chr6$block)
+head(block_data_str_filt_chr6)
+str(block_data_str_filt_chr6)
+```
+
+Chromosome-7
+```{r}
+# Read the PLINK .block file into R without a header
+block_data_chr7 <- read.delim("blocks_chr7.blocks", header = FALSE, comment.char = "", stringsAsFactors = FALSE)
+dim(block_data_chr7) #1558
+View(block_data_chr7)
+# Split the characters in each cell and create a new data frame
+block_data_str_chr7 <- data.frame(
+  block = rep(1:length(block_data_chr7$V1), sapply(strsplit(block_data_chr7$V1, " "), length)),
+  marker = unlist(strsplit(block_data_chr7$V1, " "))
+)
+head(block_data_str_chr7)
+# Remove rows with asterisk (*) character in the Characters column
+block_data_str_filt_chr7 <- subset(block_data_str_chr7, !grepl("\\*", marker))
+head(block_data_str_filt_chr7)
+str(block_data_str_filt_chr7)
+
+#check the end of chromosome 6 block number to continue to block number of next chromosome
+tail(block_data_str_filt_chr6) # chr6 block ended at block 12475
+#then add that to the next chromosome block as continuation of blocks partitioning
+block_data_str_filt_chr7$block <- block_data_str_filt_chr7$block + 
+  as.numeric(block_data_str_filt_chr6$block[length(block_data_str_filt_chr6$block)])
+
+block_data_str_filt_chr7$block <- as.character(block_data_str_filt_chr7$block)
+head(block_data_str_filt_chr7)
+str(block_data_str_filt_chr7)
+```
+
+
+Chromosome-8
+```{r}
+# Read the PLINK .block file into R without a header
+block_data_chr8 <- read.delim("blocks_chr8.blocks", header = FALSE, comment.char = "", stringsAsFactors = FALSE)
+dim(block_data_chr8) #1544
+View(block_data_chr8)
+# Split the characters in each cell and create a new data frame
+block_data_str_chr8 <- data.frame(
+  block = rep(1:length(block_data_chr8$V1), sapply(strsplit(block_data_chr8$V1, " "), length)),
+  marker = unlist(strsplit(block_data_chr8$V1, " "))
+)
+head(block_data_str_chr8)
+# Remove rows with asterisk (*) character in the Characters column
+block_data_str_filt_chr8 <- subset(block_data_str_chr8, !grepl("\\*", marker))
+head(block_data_str_filt_chr8)
+str(block_data_str_filt_chr8)
+
+#check the end of chromosome 7 block number to continue to block number of next chromosome
+tail(block_data_str_filt_chr7) # chr7 block ended at block 14033
+#then add that to the next chromosome block as continuation of blocks partitioning
+block_data_str_filt_chr8$block <- block_data_str_filt_chr8$block + 
+  as.numeric(block_data_str_filt_chr7$block[length(block_data_str_filt_chr7$block)])
+
+block_data_str_filt_chr8$block <- as.character(block_data_str_filt_chr8$block)
+head(block_data_str_filt_chr8)
+str(block_data_str_filt_chr8)
+```
+
+Chromosome-9
+```{r}
+# Read the PLINK .block file into R without a header
+block_data_chr9 <- read.delim("blocks_chr9.blocks", header = FALSE, comment.char = "", stringsAsFactors = FALSE)
+dim(block_data_chr9) #1395 
+View(block_data_chr9)
+# Split the characters in each cell and create a new data frame
+block_data_str_chr9 <- data.frame(
+  block = rep(1:length(block_data_chr9$V1), sapply(strsplit(block_data_chr9$V1, " "), length)),
+  marker = unlist(strsplit(block_data_chr9$V1, " "))
+)
+head(block_data_str_chr9)
+# Remove rows with asterisk (*) character in the Characters column
+block_data_str_filt_chr9 <- subset(block_data_str_chr9, !grepl("\\*", marker))
+head(block_data_str_filt_chr9)
+str(block_data_str_filt_chr9)
+
+#check the end of chromosome 8 block number to continue to block number of next chromosome
+tail(block_data_str_filt_chr8) # chr8 block ended at block 15577
+#then add that to the next chromosome block as continuation of blocks partitioning
+block_data_str_filt_chr9$block <- block_data_str_filt_chr9$block + 
+  as.numeric(block_data_str_filt_chr8$block[length(block_data_str_filt_chr8$block)])
+
+
+block_data_str_filt_chr9$block <- as.character(block_data_str_filt_chr9$block)
+head(block_data_str_filt_chr9)
+str(block_data_str_filt_chr9)
+```
+
+Chromosome-10
+```{r}
+# Read the PLINK .block file into R without a header
+block_data_chr10 <- read.delim("blocks_chr10.blocks", header = FALSE, comment.char = "", stringsAsFactors = FALSE)
+dim(block_data_chr10) #1311 
+View(block_data_chr10)
+# Split the characters in each cell and create a new data frame
+block_data_str_chr10 <- data.frame(
+  block = rep(1:length(block_data_chr10$V1), sapply(strsplit(block_data_chr10$V1, " "), length)),
+  marker = unlist(strsplit(block_data_chr10$V1, " "))
+)
+head(block_data_str_chr10)
+# Remove rows with asterisk (*) character in the Characters column
+block_data_str_filt_chr10 <- subset(block_data_str_chr10, !grepl("\\*", marker))
+head(block_data_str_filt_chr10)
+str(block_data_str_filt_chr10)
+
+#check the end of chromosome 9 block number to continue to block number of next chromosome
+tail(block_data_str_filt_chr9) # chr9 block ended at block 16972
+#then add that to the next chromosome block as continuation of blocks partitioning
+block_data_str_filt_chr10$block <- block_data_str_filt_chr10$block + 
+  as.numeric(block_data_str_filt_chr9$block[length(block_data_str_filt_chr9$block)])
+
+
+block_data_str_filt_chr10$block <- as.character(block_data_str_filt_chr10$block)
+head(block_data_str_filt_chr10)
+str(block_data_str_filt_chr10)
+
+```
+
+
+Combine the blocks of each chromosome into a single data frame
+```{r}
+combined_blocks_chr1_10 <- rbind(block_data_str_filt_chr1 ,block_data_str_filt_chr2,block_data_str_filt_chr3,block_data_str_filt_chr4,
+                                 block_data_str_filt_chr5,block_data_str_filt_chr6,block_data_str_filt_chr7,block_data_str_filt_chr8,
+                                 block_data_str_filt_chr9,block_data_str_filt_chr10)
+```
+
+Write the formatted and combined block data to a new file
+```{r}
+write.table(combined_blocks_chr1_10, file = "all_chr_haplo_block_hapvwr.txt", sep = "\t", quote = FALSE, row.names = FALSE)
+```
+
+
